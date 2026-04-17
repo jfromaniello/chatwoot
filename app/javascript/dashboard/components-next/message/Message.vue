@@ -39,6 +39,7 @@ import DyteBubble from './bubbles/Dyte.vue';
 import LocationBubble from './bubbles/Location.vue';
 import CSATBubble from './bubbles/CSAT.vue';
 import FormBubble from './bubbles/Form.vue';
+import CardBubble from './bubbles/Card.vue';
 import VoiceCallBubble from './bubbles/VoiceCall.vue';
 
 import MessageError from './MessageError.vue';
@@ -298,6 +299,10 @@ const componentToRender = computed(() => {
     return FormBubble;
   }
 
+  if (props.contentType === CONTENT_TYPES.CARDS) {
+    return CardBubble;
+  }
+
   if (props.contentType === CONTENT_TYPES.VOICE_CALL) {
     return VoiceCallBubble;
   }
@@ -395,6 +400,7 @@ const shouldRenderMessage = computed(() => {
   const isUnsupported = props.contentAttributes?.isUnsupported;
   const isAnIntegrationMessage =
     props.contentType === CONTENT_TYPES.INTEGRATIONS;
+  const isCardMessage = props.contentType === CONTENT_TYPES.CARDS;
   const isFailedMessage = props.status === MESSAGE_STATUS.FAILED;
   const hasExternalError = !!props.contentAttributes?.externalError;
 
@@ -404,6 +410,7 @@ const shouldRenderMessage = computed(() => {
     isEmailContentType ||
     isUnsupported ||
     isAnIntegrationMessage ||
+    isCardMessage ||
     isFailedMessage ||
     hasExternalError
   );
