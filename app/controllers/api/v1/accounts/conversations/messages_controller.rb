@@ -50,7 +50,9 @@ class Api::V1::Accounts::Conversations::MessagesController < Api::V1::Accounts::
       secret: agent_bot.secret, delivery_id: SecureRandom.uuid
     )
 
-    head :ok
+    message.update!(content_attributes: message.content_attributes.merge('dismissed' => true)) if message.content_attributes['dismiss_on_action']
+
+    @message = message
   end
 
   def dismiss

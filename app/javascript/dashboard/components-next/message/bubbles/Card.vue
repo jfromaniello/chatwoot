@@ -12,9 +12,6 @@ const { contentAttributes, conversationId, id, content } = useMessageContext();
 
 const cards = computed(() => contentAttributes.value?.items || []);
 const isDismissed = computed(() => contentAttributes.value?.dismissed);
-const dismissOnAction = computed(
-  () => contentAttributes.value?.dismiss_on_action
-);
 const actionInProgress = ref(false);
 
 async function dismiss() {
@@ -31,12 +28,12 @@ async function handleAction(action) {
   if (action.type === 'postback') {
     actionInProgress.value = true;
     try {
-      await MessageApi.executeAction(conversationId.value, id.value, {
-        action_payload: action.payload,
-      });
-      if (dismissOnAction.value) {
-        await dismiss();
-      }
+      const { data } = await MessageApi.executeAction(
+        conversationId.value,
+        id.value,
+        { action_payload: action.payload }
+      );
+      store.dispatch('updateMessage', data);
     } finally {
       actionInProgress.value = false;
     }
@@ -92,7 +89,7 @@ async function handleAction(action) {
       class="mt-2 text-xs opacity-50 hover:opacity-80 transition-opacity"
       @click="dismiss"
     >
-      {{ t('GENERAL_SETTINGS.NOTIFICATIONS.DISMISS') }}
+      {{ t('GENERAL_SETTINGS.DISMISS') }}
     </button>
   </BaseBubble>
 </template>
