@@ -161,7 +161,18 @@ const sortConfig = {
   },
 };
 
+const STATUS_SORT_ORDER = {
+  open: 0,
+  pending: 1,
+  snoozed: 2,
+  resolved: 3,
+};
+
 export const sortComparator = (a, b, sortKey) => {
+  const statusA = STATUS_SORT_ORDER[a.status] ?? 4;
+  const statusB = STATUS_SORT_ORDER[b.status] ?? 4;
+  if (statusA !== statusB) return statusA - statusB;
+
   const [sortMethod, sortDirection] =
     SORT_OPTIONS[sortKey] || SORT_OPTIONS.last_activity_at_desc;
   return sortConfig[sortMethod](a, b, sortDirection);
