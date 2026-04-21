@@ -128,6 +128,21 @@ const showLabelsSection = computed(() => {
   return props.chat.labels?.length > 0 || hasSlaPolicyId.value;
 });
 
+const statusIcon = computed(() => {
+  const status = props.chat.status;
+  switch (status) {
+    case 'resolved':
+      return { icon: 'checkmark-circle', color: 'text-n-teal-9' };
+    case 'pending':
+      return { icon: 'book-clock', color: 'text-n-amber-9' };
+    case 'snoozed':
+      return { icon: 'snooze', color: 'text-n-blue-9' };
+    case 'open':
+    default:
+      return { icon: 'arrow-right', color: 'text-n-ruby-9' };
+  }
+});
+
 const messagePreviewClass = computed(() => {
   return [
     hasUnread.value ? 'font-medium text-n-slate-12' : 'text-n-slate-11',
@@ -375,6 +390,13 @@ const deleteConversation = () => {
         >
           {{ unreadCount > 9 ? '9+' : unreadCount }}
         </span>
+        <fluent-icon
+          v-if="!hasUnread"
+          :icon="statusIcon.icon"
+          size="16"
+          class="ltr:ml-auto rtl:mr-auto mt-1"
+          :class="statusIcon.color"
+        />
       </div>
       <CardLabels
         v-if="showLabelsSection"
