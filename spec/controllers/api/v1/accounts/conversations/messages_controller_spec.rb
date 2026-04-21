@@ -358,4 +358,114 @@ RSpec.describe 'Conversation Messages API', type: :request do
       end
     end
   end
+
+  describe 'POST /api/v1/accounts/{account.id}/conversations/:conversation_id/messages/:id/execute_action' do
+    let(:agent_bot) { create(:agent_bot, account: account, outgoing_url: 'https://example.com/webhook') }
+    let(:conversation) { create(:conversation, inbox: create(:inbox, account: account), account: account) }
+    let(:message) do
+      create(:message, conversation: conversation, account: account, message_type: :outgoing, private: true,
+                        content_type: :cards, sender: agent_bot,
+                        content_attributes: { 'items' => [{ 'title' => 'Test', 'actions' => [{ 'type' => 'postback', 'text' => 'Go',
+                                                                                                'payload' => 'test_payload' }] }] })
+    end
+    let(:agent) { create(:user, account: account, role: :agent) }
+
+    before { create(:inbox_member, inbox: conversation.inbox, user: agent) }
+
+    context 'when it is an unauthenticated user' do
+      it 'returns unauthorized' do
+        post "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/messages/#{message.id}/execute_action"
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when it is an authenticated agent' do
+      it 'enqueues a webhook job to the agent bot' do
+        post "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/messages/#{message.id}/execute_action",
+             params: { action_payload: 'test_payload' },
+             headers: agent.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:success)
+
+        enqueued = ActiveJob::Base.queue_adapter.enqueued_jobs.find { |j| j['job_class'] == 'AgentBots::WebhookJob' }
+        expect(enqueued).to be_present
+        expect(enqueued['arguments'][0]).to eq(agent_bot.outgoing_url)
+        expect(enqueued['arguments'][1]).to include('event' => 'message_action_executed', 'action_payload' => 'test_payload')
+      end
+
+      it 'auto-dismisses when dismiss_on_action is set' do
+        message.update!(content_attributes: message.content_attributes.merge('dismiss_on_action' => true))
+
+        post "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/messages/#{message.id}/execute_action",
+             params: { action_payload: 'test_payload' },
+             headers: agent.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(message.reload.content_attributes['dismissed']).to be true
+      end
+
+      it 'does not dismiss when dismiss_on_action is not set' do
+        post "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/messages/#{message.id}/execute_action",
+             params: { action_payload: 'test_payload' },
+             headers: agent.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(message.reload.content_attributes['dismissed']).to be_nil
+      end
+
+      it 'returns not_found when message has no agent bot sender' do
+        message.update!(sender: nil)
+
+        post "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/messages/#{message.id}/execute_action",
+             params: { action_payload: 'test_payload' },
+             headers: agent.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+  end
+
+  describe 'POST /api/v1/accounts/{account.id}/conversations/:conversation_id/messages/:id/dismiss' do
+    let(:conversation) { create(:conversation, inbox: create(:inbox, account: account), account: account) }
+    let(:message) do
+      create(:message, conversation: conversation, account: account, message_type: :outgoing, private: true,
+                        content_type: :cards,
+                        content_attributes: { 'items' => [{ 'title' => 'Test', 'actions' => [{ 'type' => 'postback', 'text' => 'Go',
+                                                                                                'payload' => 'p' }] }] })
+    end
+    let(:agent) { create(:user, account: account, role: :agent) }
+
+    before { create(:inbox_member, inbox: conversation.inbox, user: agent) }
+
+    context 'when it is an unauthenticated user' do
+      it 'returns unauthorized' do
+        post "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/messages/#{message.id}/dismiss"
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    context 'when it is an authenticated agent' do
+      it 'marks the message as dismissed' do
+        post "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/messages/#{message.id}/dismiss",
+             headers: agent.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:success)
+        expect(message.reload.content_attributes['dismissed']).to be true
+      end
+
+      it 'preserves existing content_attributes' do
+        post "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/messages/#{message.id}/dismiss",
+             headers: agent.create_new_auth_token,
+             as: :json
+
+        expect(message.reload.content_attributes['items']).to be_present
+        expect(message.reload.content_attributes['dismissed']).to be true
+      end
+    end
+  end
 end
