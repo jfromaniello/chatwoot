@@ -66,6 +66,8 @@ import {
 import { matchesFilters } from '../store/modules/conversations/helpers/filterHelpers';
 import { CONVERSATION_EVENTS } from '../helper/AnalyticsHelper/events';
 import { ASSIGNEE_TYPE_TAB_PERMISSIONS } from 'dashboard/constants/permissions.js';
+import { LocalStorage } from 'shared/helpers/localStorage';
+import { LOCAL_STORAGE_KEYS } from 'dashboard/constants/localStorage';
 
 const props = defineProps({
   conversationInbox: { type: [String, Number], default: 0 },
@@ -392,6 +394,28 @@ function setFiltersFromUISettings() {
     : wootConstants.SORT_BY_TYPE.LAST_ACTIVITY_AT_DESC;
 }
 
+function restoreAssigneeTabFromLocalStorage() {
+  const stored = LocalStorage.getFromJsonStore(
+    LOCAL_STORAGE_KEYS.DASHBOARD_FILTERS,
+    currentAccountId.value
+  );
+  if (!stored?.assigneeTab) return;
+  const isAllowedTab = assigneeTabItems.value.some(
+    item => item.key === stored.assigneeTab
+  );
+  if (isAllowedTab) {
+    activeAssigneeTab.value = stored.assigneeTab;
+  }
+}
+
+function persistAssigneeTabToLocalStorage(tab) {
+  LocalStorage.updateJsonStore(
+    LOCAL_STORAGE_KEYS.DASHBOARD_FILTERS,
+    currentAccountId.value,
+    { assigneeTab: tab }
+  );
+}
+
 function emitConversationLoaded() {
   emit('conversationLoad');
 }
@@ -618,6 +642,7 @@ function updateAssigneeTab(selectedTab) {
     resetBulkActions();
     emitter.emit('clearSearchInput');
     activeAssigneeTab.value = selectedTab;
+    persistAssigneeTabToLocalStorage(selectedTab);
     if (!currentPage.value) {
       fetchConversations();
     }
@@ -820,6 +845,7 @@ useEmitter('fetch_conversation_stats', () => {
 });
 
 onMounted(() => {
+  restoreAssigneeTabFromLocalStorage();
   store.dispatch('setChatListFilters', conversationFilters.value);
   setFiltersFromUISettings();
   store.dispatch('setChatStatusFilter', activeStatus.value);
