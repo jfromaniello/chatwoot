@@ -1,25 +1,29 @@
 module SortHandler
   extend ActiveSupport::Concern
 
+  # status enum: open=0, resolved=1, pending=2, snoozed=3
+  # Logical order for UI: open, pending, snoozed, resolved
+  STATUS_SORT_ORDER = 'CASE conversations.status WHEN 0 THEN 0 WHEN 2 THEN 1 WHEN 3 THEN 2 WHEN 1 THEN 3 END ASC'.freeze
+
   class_methods do
     def sort_on_last_activity_at(sort_direction = :desc)
-      order(last_activity_at: sort_direction)
+      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.last_activity_at #{sort_direction.to_s.upcase}"))
     end
 
     def sort_on_created_at(sort_direction = :asc)
-      order(created_at: sort_direction)
+      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.created_at #{sort_direction.to_s.upcase}"))
     end
 
     def sort_on_priority(sort_direction = :desc)
-      order(generate_sql_query("priority #{sort_direction.to_s.upcase} NULLS LAST, last_activity_at DESC"))
+      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.priority #{sort_direction.to_s.upcase} NULLS LAST, conversations.last_activity_at DESC"))
     end
 
     def sort_on_priority_created_at(sort_direction = :desc)
-      order(generate_sql_query("priority #{sort_direction.to_s.upcase} NULLS LAST, created_at ASC"))
+      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.priority #{sort_direction.to_s.upcase} NULLS LAST, conversations.created_at ASC"))
     end
 
     def sort_on_waiting_since(sort_direction = :asc)
-      order(generate_sql_query("waiting_since #{sort_direction.to_s.upcase} NULLS LAST, created_at ASC"))
+      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.waiting_since #{sort_direction.to_s.upcase} NULLS LAST, conversations.created_at ASC"))
     end
 
     def last_messaged_conversations

@@ -791,7 +791,7 @@ RSpec.describe Conversation do
         create(:message, conversation_id: conversation_3.id, message_type: :incoming, created_at: DateTime.now - 2.days)
       end
 
-      it 'sort conversations with latest resolved conversation at first' do
+      it 'keeps open conversations before resolved ones regardless of activity' do
         records = described_class.sort_on_last_activity_at
 
         expect(records.first.id).to eq(conversation_3.id)
@@ -808,7 +808,8 @@ RSpec.describe Conversation do
         end
         records = described_class.sort_on_last_activity_at
 
-        expect(records.first.id).to eq(conversation_1.id)
+        expect(records.first.id).to eq(conversation_3.id)
+        expect(records.last.id).to eq(conversation_1.id)
       end
 
       it 'Sort conversations with latest message' do
