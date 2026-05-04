@@ -394,25 +394,46 @@ function setFiltersFromUISettings() {
     : wootConstants.SORT_BY_TYPE.LAST_ACTIVITY_AT_DESC;
 }
 
-function restoreAssigneeTabFromLocalStorage() {
-  const stored = LocalStorage.getFromJsonStore(
-    LOCAL_STORAGE_KEYS.DASHBOARD_FILTERS,
-    currentAccountId.value
+function getStoredDashboardFilters() {
+  return (
+    LocalStorage.getFromJsonStore(
+      LOCAL_STORAGE_KEYS.DASHBOARD_FILTERS,
+      currentAccountId.value
+    ) || {}
   );
-  if (!stored?.assigneeTab) return;
+}
+
+function persistDashboardFilters(updates) {
+  LocalStorage.updateJsonStore(
+    LOCAL_STORAGE_KEYS.DASHBOARD_FILTERS,
+    currentAccountId.value,
+    { ...getStoredDashboardFilters(), ...updates }
+  );
+}
+
+function restoreAssigneeTabFromLocalStorage() {
+  const { assigneeTab } = getStoredDashboardFilters();
+  if (!assigneeTab) return;
   const isAllowedTab = assigneeTabItems.value.some(
-    item => item.key === stored.assigneeTab
+    item => item.key === assigneeTab
   );
   if (isAllowedTab) {
-    activeAssigneeTab.value = stored.assigneeTab;
+    activeAssigneeTab.value = assigneeTab;
   }
 }
 
 function persistAssigneeTabToLocalStorage(tab) {
-  LocalStorage.updateJsonStore(
-    LOCAL_STORAGE_KEYS.DASHBOARD_FILTERS,
-    currentAccountId.value,
-    { assigneeTab: tab }
+  persistDashboardFilters({ assigneeTab: tab });
+}
+
+function isOnHomeDashboardRoute() {
+  return (
+    route.name === 'home' &&
+    !props.conversationInbox &&
+    !props.label &&
+    !props.teamId &&
+    !props.foldersId &&
+    !props.conversationType
   );
 }
 
@@ -445,6 +466,9 @@ function fetchSavedFilteredConversations(payload) {
 }
 
 function onApplyFilter(payload) {
+  persistDashboardFilters({
+    advancedFilters: JSON.parse(JSON.stringify(payload)),
+  });
   payload = useSnakeCase(payload);
   resetBulkActions();
   foldersQuery.value = filterQueryGenerator(payload);
@@ -612,6 +636,26 @@ function resetAndFetchData() {
     return;
   }
   fetchConversations();
+}
+
+function restoreAdvancedFiltersFromLocalStorage() {
+  if (!isOnHomeDashboardRoute()) return false;
+  const { advancedFilters } = getStoredDashboardFilters();
+  if (!advancedFilters?.length) return false;
+
+  const snakeCased = useSnakeCase(JSON.parse(JSON.stringify(advancedFilters)));
+  resetBulkActions();
+  store.dispatch('conversationPage/reset');
+  store.dispatch('emptyAllConversations');
+  store.dispatch('setConversationFilters', snakeCased);
+  foldersQuery.value = filterQueryGenerator(snakeCased);
+  fetchFilteredConversations(snakeCased);
+  return true;
+}
+
+function clearAdvancedFiltersAndReset() {
+  persistDashboardFilters({ advancedFilters: [] });
+  resetAndFetchData();
 }
 
 function loadMoreConversations() {
@@ -850,7 +894,9 @@ onMounted(() => {
   setFiltersFromUISettings();
   store.dispatch('setChatStatusFilter', activeStatus.value);
   store.dispatch('setChatSortFilter', activeSortBy.value);
-  resetAndFetchData();
+  if (!restoreAdvancedFiltersFromLocalStorage()) {
+    resetAndFetchData();
+  }
   if (hasActiveFolders.value) {
     store.dispatch('campaigns/get');
   }
@@ -943,7 +989,7 @@ watch(conversationFilters, (newVal, oldVal) => {
       @add-folders="onClickOpenAddFoldersModal"
       @delete-folders="onClickOpenDeleteFoldersModal"
       @filters-modal="onToggleAdvanceFiltersModal"
-      @reset-filters="resetAndFetchData"
+      @reset-filters="clearAdvancedFiltersAndReset"
       @basic-filter-change="onBasicFilterChange"
     />
 
