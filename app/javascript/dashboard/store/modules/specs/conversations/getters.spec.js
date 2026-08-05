@@ -470,10 +470,11 @@ describe('#getters', () => {
         rootGetters
       );
 
+      // open conversations sort ahead of resolved ones, then by last_activity_at desc
       expect(result).toEqual([
-        mockConversations[2],
         mockConversations[1],
         mockConversations[0],
+        mockConversations[2],
       ]);
     });
 
@@ -499,10 +500,11 @@ describe('#getters', () => {
         rootGetters
       );
 
+      // open conversations sort ahead of resolved ones, then by last_activity_at desc
       expect(result).toEqual([
-        mockConversations[2],
         mockConversations[1],
         mockConversations[0],
+        mockConversations[2],
       ]);
     });
 
@@ -534,10 +536,11 @@ describe('#getters', () => {
         rootGetters
       );
 
+      // open conversations sort ahead of resolved ones, then by last_activity_at desc
       expect(result).toEqual([
-        mockConversations[2],
         mockConversations[1],
         mockConversations[0],
+        mockConversations[2],
       ]);
     });
 

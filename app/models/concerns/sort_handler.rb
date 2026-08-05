@@ -15,11 +15,13 @@ module SortHandler
     end
 
     def sort_on_priority(sort_direction = :desc)
-      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.priority #{sort_direction.to_s.upcase} NULLS LAST, conversations.last_activity_at DESC"))
+      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.priority #{sort_direction.to_s.upcase} NULLS LAST, " \
+                               'conversations.last_activity_at DESC'))
     end
 
     def sort_on_priority_created_at(sort_direction = :desc)
-      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.priority #{sort_direction.to_s.upcase} NULLS LAST, conversations.created_at ASC"))
+      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.priority #{sort_direction.to_s.upcase} NULLS LAST, " \
+                               'conversations.created_at ASC'))
     end
 
     def sort_on_waiting_since(sort_direction = :asc)

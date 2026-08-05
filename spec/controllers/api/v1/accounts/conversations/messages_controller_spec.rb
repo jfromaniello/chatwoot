@@ -386,9 +386,9 @@ RSpec.describe 'Conversation Messages API', type: :request do
     let(:conversation) { create(:conversation, inbox: create(:inbox, account: account), account: account) }
     let(:message) do
       create(:message, conversation: conversation, account: account, message_type: :outgoing, private: true,
-                        content_type: :cards, sender: agent_bot,
-                        content_attributes: { 'items' => [{ 'title' => 'Test', 'actions' => [{ 'type' => 'postback', 'text' => 'Go',
-                                                                                                'payload' => 'test_payload' }] }] })
+                       content_type: :cards, sender: agent_bot,
+                       content_attributes: { 'items' => [{ 'title' => 'Test', 'actions' => [{ 'type' => 'postback', 'text' => 'Go',
+                                                                                              'payload' => 'test_payload' }] }] })
     end
     let(:agent) { create(:user, account: account, role: :agent) }
 
@@ -455,9 +455,9 @@ RSpec.describe 'Conversation Messages API', type: :request do
     let(:conversation) { create(:conversation, inbox: create(:inbox, account: account), account: account) }
     let(:message) do
       create(:message, conversation: conversation, account: account, message_type: :outgoing, private: true,
-                        content_type: :cards,
-                        content_attributes: { 'items' => [{ 'title' => 'Test', 'actions' => [{ 'type' => 'postback', 'text' => 'Go',
-                                                                                                'payload' => 'p' }] }] })
+                       content_type: :cards,
+                       content_attributes: { 'items' => [{ 'title' => 'Test', 'actions' => [{ 'type' => 'postback', 'text' => 'Go',
+                                                                                              'payload' => 'p' }] }] })
     end
     let(:agent) { create(:user, account: account, role: :agent) }
 
