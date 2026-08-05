@@ -23,7 +23,8 @@ module SortHandler
     end
 
     def sort_on_waiting_since(sort_direction = :asc)
-      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, conversations.waiting_since #{sort_direction.to_s.upcase} NULLS LAST, conversations.created_at ASC"))
+      order(generate_sql_query("#{SortHandler::STATUS_SORT_ORDER}, (conversations.waiting_since IS NULL), " \
+                               "conversations.waiting_since #{sort_direction.to_s.upcase}, conversations.created_at ASC"))
     end
 
     def last_messaged_conversations
