@@ -39,10 +39,22 @@ class SafeFetch::Fetcher
     end
   end
 
+  # ssrf_filter's default resolver returns A and AAAA records mixed and
+  # connects to whichever it picks. On hosts without IPv6 egress (Railway,
+  # most containers) an AAAA pick fails with "Network unreachable", which
+  # broke every agent-bot webhook after the v4.16.2 SSRF fix went live
+  # ("Failed to open TCP connection to 2600:9000:..."). Prefer IPv4 and only
+  # fall back to IPv6 when the hostname has no A records.
+  IPV4_PREFERRED_RESOLVER = proc do |hostname|
+    ips = ::Resolv.getaddresses(hostname).map { |ip| ::IPAddr.new(ip) }
+    v4 = ips.reject(&:ipv6?)
+    v4.empty? ? ips : v4
+  end
+
   def perform_request(&)
     return SafeFetch::PrivateNetworkRequest.new(options).perform(&) if SafeFetch.allow_private_network?
 
-    SsrfFilter.public_send(options.method, options.url, **options.request_options, &)
+    SsrfFilter.public_send(options.method, options.url, resolver: IPV4_PREFERRED_RESOLVER, **options.request_options, &)
   end
 
   def validate_content_type!(content_type)
