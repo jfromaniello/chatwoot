@@ -206,6 +206,9 @@
         }
       }
     },
+    "AVI_SUGGESTION_LOCK": {
+      "MESSAGE": "Avi dejó una respuesta sugerida. Enviala, rechazala o desatendé la conversación para poder escribir."
+    },
     "FOOTER": {
       "MESSAGE_SIGN_TOOLTIP": "Firma del mensaje",
       "ENABLE_SIGN_TOOLTIP": "Activar firma",

@@ -7,6 +7,7 @@ import { useSnakeCase } from 'dashboard/composables/useTransformKeys';
 
 // components
 import ReplyBox from './ReplyBox.vue';
+import AviSuggestionLock from './AviSuggestionLock.vue';
 import MessageList from 'next/message/MessageList.vue';
 import ConversationLabelSuggestion from './conversation/LabelSuggestion.vue';
 import Banner from 'dashboard/components/ui/Banner.vue';
@@ -29,6 +30,7 @@ import {
   getReadMessages,
   getUnreadMessages,
 } from 'dashboard/helper/conversationHelper';
+import { getPendingAviSuggestion } from 'dashboard/helper/aviSuggestion';
 
 // constants
 import { BUS_EVENTS } from 'shared/constants/busEvents';
@@ -41,6 +43,7 @@ export default {
   components: {
     MessageList,
     ReplyBox,
+    AviSuggestionLock,
     Banner,
     ConversationLabelSuggestion,
     Spinner,
@@ -136,6 +139,9 @@ export default {
         return filterDuplicateSourceMessages(messages);
       }
       return messages;
+    },
+    pendingAviSuggestion() {
+      return getPendingAviSuggestion(this.getMessages);
     },
     readMessages() {
       return getReadMessages(
@@ -525,7 +531,13 @@ export default {
           />
         </div>
       </div>
+      <AviSuggestionLock
+        v-if="pendingAviSuggestion"
+        :conversation-id="currentChat.id"
+        :message="pendingAviSuggestion"
+      />
       <ResizableEditorWrapper
+        v-else
         ref="resizableEditorWrapperRef"
         :container-height="Math.max(0, containerHeight - topBannerHeight)"
       >

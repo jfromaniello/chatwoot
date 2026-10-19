@@ -1,10 +1,12 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
 import BaseBubble from './Base.vue';
 import { useMessageContext } from '../provider.js';
 import MessageApi from 'dashboard/api/inbox/message.js';
+import { useCardActions } from 'dashboard/composables/useCardActions';
+import { hasAviSuggestionAction } from 'dashboard/helper/aviSuggestion';
 
 const store = useStore();
 const { t } = useI18n();
@@ -12,32 +14,15 @@ const { contentAttributes, conversationId, id, content } = useMessageContext();
 
 const cards = computed(() => contentAttributes.value?.items || []);
 const isDismissed = computed(() => contentAttributes.value?.dismissed);
-const actionInProgress = ref(false);
+// Avi suggestions have to be sent, rejected or dismissed through their own
+// actions: a plain dismiss would hide the card without AbastoVirtual
+// knowing what the operator did with it.
+const canDismiss = computed(() => !hasAviSuggestionAction(cards.value));
+const { actionInProgress, handleAction } = useCardActions(conversationId, id);
 
 async function dismiss() {
   const { data } = await MessageApi.dismiss(conversationId.value, id.value);
   store.dispatch('updateMessage', data);
-}
-
-async function handleAction(action) {
-  if (action.type === 'link') {
-    window.open(action.uri, '_blank', 'noopener,noreferrer');
-    return;
-  }
-
-  if (action.type === 'postback') {
-    actionInProgress.value = true;
-    try {
-      const { data } = await MessageApi.executeAction(
-        conversationId.value,
-        id.value,
-        { action_payload: action.payload }
-      );
-      store.dispatch('updateMessage', data);
-    } finally {
-      actionInProgress.value = false;
-    }
-  }
 }
 </script>
 
@@ -86,6 +71,7 @@ async function handleAction(action) {
       </div>
     </div>
     <button
+      v-if="canDismiss"
       class="mt-2 text-xs opacity-50 hover:opacity-80 transition-opacity"
       @click="dismiss"
     >

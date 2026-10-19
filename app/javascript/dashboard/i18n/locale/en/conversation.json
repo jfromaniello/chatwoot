@@ -220,6 +220,9 @@
         }
       }
     },
+    "AVI_SUGGESTION_LOCK": {
+      "MESSAGE": "Avi left a suggested reply. Send it, reject it or dismiss the conversation to write your own."
+    },
     "FOOTER": {
       "MESSAGE_SIGN_TOOLTIP": "Message signature",
       "ENABLE_SIGN_TOOLTIP": "Enable signature",
