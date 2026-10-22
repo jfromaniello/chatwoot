@@ -1,0 +1,109 @@
+# Imagen de chatwoot para Coolify (Hetzner), desde Dockerfile.railway (Rails y
+# Sidekiq en un contenedor, con multirun). Se publica en GHCR con el SHA del
+# commit. En josedev, si la variable del repo COOLIFY_DEPLOY es "true", además
+# apunta la app de Coolify (variable COOLIFY_APP_UUID) a ese tag y la despliega
+# (secret COOLIFY_TOKEN, token de API con write y deploy).
+name: Coolify image
+
+on:
+  push:
+    branches: [josedev, coolify-image]
+  workflow_dispatch:
+
+concurrency:
+  group: coolify-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.railway
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/jfromaniello/chatwoot:${{ github.sha }}
+            ghcr.io/jfromaniello/chatwoot:${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to Coolify once the image is published.
+  # COOLIFY_DEPLOY (repo variable) pauses it.
+  coolify:
+    needs: image
+    if: github.ref == 'refs/heads/josedev' && vars.COOLIFY_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # comentario en el commit si no hay PR
+      pull-requests: write
+    concurrency:
+      group: coolify-deploy
+      cancel-in-progress: false
+    env:
+      COOLIFY_URL: https://coolify.abastovirtual.com/api/v1
+      COOLIFY_APP: ${{ vars.COOLIFY_APP_UUID }}
+      COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+    steps:
+      - name: Deploy
+        id: deploy
+        run: |
+          echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
+          fail() { echo "reason=$1" >> "$GITHUB_OUTPUT"; echo "$1"; exit 1; }
+
+          curl -fsS -X PATCH "$COOLIFY_URL/applications/$COOLIFY_APP" \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" -H "Content-Type: application/json" \
+            -d '{"docker_registry_image_tag":"${{ github.sha }}"}' > /dev/null \
+            || fail "Coolify rechazó el cambio de tag de la imagen"
+          id=$(curl -fsS -X POST "$COOLIFY_URL/deploy?uuid=$COOLIFY_APP" -H "Authorization: Bearer $COOLIFY_TOKEN" | jq -r '.deployments[0].deployment_uuid')
+          [ -n "$id" ] && [ "$id" != "null" ] || fail "Coolify no devolvió deployment_uuid"
+
+          for i in $(seq 1 60); do
+            status=$(curl -fsS "$COOLIFY_URL/deployments/$id" -H "Authorization: Bearer $COOLIFY_TOKEN" | jq -r .status || true)
+            case "$status" in
+              finished) echo "deploy $id terminado"; exit 0 ;;
+              failed|cancelled*) fail "el deployment $id de Coolify terminó en '$status' (ver logs en Coolify)" ;;
+            esac
+            sleep 10
+          done
+          fail "timeout: el deployment $id de Coolify sigue en '$status' después de 10 minutos"
+
+      # El resultado queda en el PR del commit (o en el commit, si fue un push
+      # directo), igual que en av y compras.
+      - name: Comentar resultado
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.deploy.outcome }}
+          START: ${{ steps.deploy.outputs.start }}
+          REASON: ${{ steps.deploy.outputs.reason }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          when=$(TZ=America/Argentina/Buenos_Aires date '+%Y-%m-%d %H:%M ART')
+          took=""; [ -n "$START" ] && took=" en $(( ($(date +%s) - START) / 60 ))m$(( ($(date +%s) - START) % 60 ))s"
+          if [ "$OUTCOME" = success ]; then
+            body="✅ Desplegado en Coolify (chatwoot) \`${GITHUB_SHA::7}\`${took} · ${when} · [run](${RUN_URL})"
+          else
+            body="❌ Falló el deploy a Coolify (chatwoot) \`${GITHUB_SHA::7}\`${took} · ${when} · [run](${RUN_URL})"$'\n\n'"Motivo: ${REASON:-el paso Deploy terminó en ${OUTCOME}; ver el run}"
+          fi
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$pr/comments" -f body="$body" > /dev/null
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments" -f body="$body" > /dev/null
+          fi
